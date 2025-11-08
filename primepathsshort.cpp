@@ -1,7 +1,11 @@
 #include <iostream>
 #include <vector>
+#include <memory>
 #include <algorithm>
 #include <queue>
+#include <fstream>
+#include <filesystem>
+namespace fs = std::filesystem;
 #include <climits>
 using namespace std;
 
@@ -9,7 +13,7 @@ struct Edge {
     int to, w1, w2, idx;
 };
 struct Cell{
-    int distance;
+    long long distance;
     int node;
     int i;
 };
@@ -45,9 +49,8 @@ vector<int> dijkstra(int N, int start, int end,
     while (!pq.empty()) {
         auto [d, u, i] = pq.top();
         pq.pop();
-        if (d > dist[u]) continue;
-
-        for (auto &e : adj[u]) {
+        if (d > dist[u] or i>N or d > dist[end]) continue;
+        for (Edge e : adj[u]) {
             int cost = primes[i+1] ? 3 * e.w2 : e.w1;
             if (dist[u] + cost < dist[e.to]) {
                 dist[e.to] = dist[u] + cost;
@@ -65,25 +68,65 @@ vector<int> dijkstra(int N, int start, int end,
     reverse(path.begin(), path.end());
     return path;
 }
+auto load_test_cases() {
+    fs::path srcPath = __FILE__;
+    fs::path srcDir = srcPath.parent_path();
+    fs::path targetFolder = srcDir / "co-project1-ex-input";
+
+    std::vector<fs::path> filePaths;
+    for (const auto& entry : fs::directory_iterator(targetFolder))
+        if (entry.is_regular_file())
+            filePaths.push_back(entry.path());
+
+    std::sort(filePaths.begin(), filePaths.end(),
+        [](const fs::path& a, const fs::path& b) {
+            return a.filename().string() < b.filename().string();
+        });
+
+    std::vector<std::unique_ptr<std::ifstream>> inputs;
+    std::vector<std::unique_ptr<std::ifstream>> outputs;
+
+    int i = 0;
+    for (const auto& p : filePaths) {
+        auto f = std::make_unique<std::ifstream>(p);
+        if (!f->is_open()) {
+            std::cerr << "Failed to open " << p << "\n";
+            continue;
+        }
+        if (i % 2 == 0)
+            inputs.push_back(std::move(f));
+        else
+            outputs.push_back(std::move(f));
+        i++;
+    }
+    return std::make_pair(std::move(inputs), std::move(outputs));
+}
+
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
-
     int N, M, u, v, w1, w2, start, end;
-    cin >> N >> M >> start >> end;
-
-    vector<bool> primes = sieve(M + 1);
-    vector<vector<Edge>> adj(N);
-
-    for (int i = 0; i < M; i++) {
-        cin >> u >> v >> w1 >> w2;
-        adj[u].push_back({v, w1, w2, i + 1});  // <-- 1-based index
+    
+    
+    auto [inputs,outputs] = load_test_cases();
+    int test_case = 0;
+    for (auto& f : inputs) {
+        cout << "Test case " << test_case++ << ":\n";
+        (*f) >> N >> M >> start >> end;
+        vector<bool> primes = sieve(M + 1);
+        vector<vector<Edge>> adj(N);
+        for (int i = 0; i < M; i++) {
+            (*f) >> u >> v >> w1 >> w2;
+            adj[u].push_back({v, w1, w2, i + 1});
+            adj[v].push_back({u, w1, w2, i + 1});
+             // <-- 1-based index
+        }
+        vector<int> result = dijkstra(N, start, end, adj, primes);
+        cout << result.size() << '\n';
+        // for (size_t i = 0; i < result.size(); ++i){
+        //     cout << result[i] << (i + 1 == result.size() ? '\n' : ' ');
+        // }
     }
-
-    vector<int> result = dijkstra(N, start, end, adj, primes);
-
-    cout << result.size() << '\n';
-    for (size_t i = 0; i < result.size(); ++i)
-        cout << result[i] << (i + 1 == result.size() ? '\n' : ' ');
+    return 0;
 }
