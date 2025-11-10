@@ -68,7 +68,7 @@ vector<int> limitedDijkstra(const vector<vector<Edge>> &adj,
                             int startEdgeIndex, int maxDepth,
                             const vector<bool> &primes,
                             int costLimit = INT_MAX,
-                            int nodeLimit = 5000)
+                            int nodeLimit = 1000)
 {
     const int n = adj.size();
     vector<int> dist(n, INT_MAX), parent(n, -1), depth(n, -1);
@@ -92,7 +92,7 @@ vector<int> limitedDijkstra(const vector<vector<Edge>> &adj,
         for (auto &e : adj[v]) {
             int nextStep = steps + 1;
             int edgeIdx = startEdgeIndex + nextStep - 1; // global edge index (1-indexed)
-            int w = (primes[edgeIdx] ? e.w2 : e.w1);
+            int w = (primes[edgeIdx] ? 3*e.w2 : e.w1);
             int nd = d + w;
 
             if (nd < dist[e.to] && nd < costLimit) {
@@ -126,7 +126,7 @@ int subpathCost(const vector<vector<Edge>> &adj,
         for (auto &e : adj[u]) {
             if (e.to == v) {
                 int edgeIdx = k + 1; // global edge index (1-indexed)
-                total += primes[edgeIdx] ? e.w2 : e.w1;
+                total += primes[edgeIdx] ? 3*e.w2 : e.w1;
                 found = true;
                 break;
             }
@@ -160,10 +160,16 @@ void refinePathSinglePass(vector<vector<Edge>> &adj, vector<int> &path,
             if (!newSeg.empty()) {
                 int newCost = subpathCost(adj, newSeg, 0, (int)newSeg.size() - 1, primes);
                 if (newCost < currentCost) {
+                    vector<int> oldPath = path;
+                    int oldTotal = subpathCost(adj, oldPath, 0, (int)oldPath.size() - 1, primes);
                     replaceSubpath(path, i, j, newSeg);
-                    // Skip ahead to avoid reusing overlapping parts in same pass
-                    i = max(i - 2, 0);
-                    break;
+                    int newTotal = subpathCost(adj, path, 0, (int)path.size() - 1, primes);
+                    if (newTotal < oldTotal) {
+                        i = max(i - 2, 0);
+                        break;
+                    } else {
+                        path = std::move(oldPath);
+                    }
                 }
             }
         }
@@ -192,7 +198,7 @@ vector<int> aStarSearch(int N, int start, int end,
         }
         for (Edge e : adj[u]) {
             int v = e.to;
-            int edge_cost =  sqrt(min(e.w2, e.w1)); // Use the min weight as cost
+            int edge_cost =  primes[i+1] ? 3 * e.w2 : e.w1; // Use the min weight as cost
             int new_g_v = dist[u] + edge_cost;
             if (new_g_v < dist[v]) {
                 dist[v] = new_g_v;
