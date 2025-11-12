@@ -1,0 +1,150 @@
+#include <bits/stdc++.h>
+using namespace std;
+using ll = long long;
+const ll INF = 1e18;
+
+struct Edge { int to; int w1, w3; };
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M; cin >> N >> M;
+    int S, T; cin >> S >> T;
+
+    vector<vector<Edge>> adj(N);
+    adj.reserve(N);
+    for (int i = 0; i < M; i++) {
+        int u,v,w1,w2;
+        cin >> u >> v >> w1 >> w2;
+        int w3 = 3*w2;
+
+        adj[u].push_back({v,w1,w3});
+        adj[v].push_back({u,w1,w3});
+    }
+
+    // --- Precompute primes for path positions ---
+    vector<char> isPrime(N+10,true);
+    isPrime[0]=isPrime[1]=false;
+    for(int i=2;i*i<=N+9;i++)
+        if(isPrime[i]) for(int j=i*i;j<=N+9;j+=i) isPrime[j]=false;
+
+    // --- Heuristic h(x): Dijkstra from T using wmin ---
+    vector<ll> h(N, INF);
+    h[T] = 0;
+    using P = pair<ll,int>;
+    priority_queue<P, vector<P>, greater<P>> pq;
+    pq.push({0,T});
+    while(!pq.empty()){
+        auto [d,u] = pq.top(); pq.pop();
+        if(d!=h[u]) continue;
+        for(auto &e: adj[u]){
+            int wmin = (e.w1 < e.w3 ? e.w1 : e.w3);
+            ll nd = d + wmin;
+            if(nd < h[e.to]){
+                h[e.to] = nd;
+                pq.push({nd, e.to});
+            }
+        }
+    }
+
+    // --- A* search using wmax ---
+    vector<ll> g(N, INF);
+    vector<int> parent(N, -1);
+    struct Node { ll f,g; int v; };
+    struct Cmp { bool operator()(const Node&a,const Node&b) const {return a.f>b.f;} };
+    priority_queue<Node, vector<Node>, Cmp> open;
+
+    g[S]=0;
+    open.push({h[S],0,S});
+
+    while(!open.empty()){
+        Node cur=open.top(); open.pop();
+        if(cur.g!=g[cur.v]) continue;
+        if(cur.v==T) break;
+        for(auto &e: adj[cur.v]){
+            int wmax = (e.w1 > e.w3 ? e.w1 : e.w3);
+            ll ng = cur.g + wmax;
+            if(ng < g[e.to]){
+                g[e.to] = ng;
+                parent[e.to] = cur.v;
+                open.push({ng + h[e.to], ng, e.to});
+            }
+        }
+    }
+
+    if(g[T]==INF){ cout<<"-1\n"; return 0; }
+
+    // --- Reconstruct path ---
+    vector<int> path;
+    for(int v=T; v!=-1; v=parent[v]) path.push_back(v);
+    reverse(path.begin(), path.end());
+
+    // --- Compute Blackie-length ---
+    ll total=0;
+    for(size_t i=1;i<path.size();i++){
+        int u=path[i-1],v=path[i];
+        int pos=i;
+        for(auto &e:adj[u]) if(e.to==v){
+            total += isPrime[pos] ? e.w3 : e.w1; 
+            break;
+        }
+    }
+
+    // --- DFS ---     ---
+
+    auto start = chrono::steady_clock::now();
+
+    ll bestTotal = total; 
+    vector<int> bestPath = path; 
+    vector<int> currPath;
+    vector<int> visited(N, 0);
+
+    function<void(int,ll,int)> dfs = [&](int u, ll currTotal, int depth) {
+        auto now = chrono::steady_clock::now();
+        if (chrono::duration_cast<chrono::seconds>(now - start).count() > 18)
+            return; // --- TIME LIMIT ---
+
+        if (currTotal + h[u] >= bestTotal) return; // --- heuristic pruning ---
+        if (u == T) {
+            bestTotal = currTotal;
+            bestPath = currPath;
+            return;
+        }
+
+        visited[u] = 1;
+        for (auto &e : adj[u]) {
+            if (visited[e.to]) continue;
+            int pos = depth + 1;
+            ll add = isPrime[pos] ? e.w3 : e.w1;
+            currPath.push_back(e.to);
+            dfs(e.to, currTotal + add, depth + 1);
+            currPath.pop_back();
+        }
+        visited[u] = 0;
+    };
+
+    currPath.push_back(S);
+    dfs(S, 0, 0);
+
+
+
+
+
+
+
+    if(bestTotal == INF) {
+        cout << "-1\n";
+        return 0;
+    }
+
+    cout << bestPath.size() << "\n";
+    for(int i = 0; i < bestPath.size(); i++) {
+        if(i) cout << " ";
+        cout << bestPath[i];
+    }
+    cout << "\n";
+
+
+
+}
