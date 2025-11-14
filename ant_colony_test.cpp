@@ -46,7 +46,44 @@ void sieve(int n) {
                 primes[i] = false;
         }
     }
-   // cout<<"Sieve done up to "<<n<<"\n";
+    cout<<"Sieve done up to "<<n<<"\n";
+}
+
+
+
+auto load_test_cases() {
+    fs::path srcPath = __FILE__;
+    fs::path srcDir = srcPath.parent_path();
+    fs::path targetFolder = srcDir / "co-project1-ex-input";
+
+    std::vector<fs::path> filePaths;
+    for (const auto& entry : fs::directory_iterator(targetFolder))
+        if (entry.is_regular_file())
+            filePaths.push_back(entry.path());
+
+    std::sort(filePaths.begin(), filePaths.end(),
+        [](const fs::path& a, const fs::path& b) {
+            return a.filename().string() < b.filename().string();
+        });
+
+    std::vector<std::unique_ptr<std::ifstream>> inputs;
+    std::vector<std::unique_ptr<std::ifstream>> outputs;
+
+    int i = 0;
+    for (const auto& p : filePaths) {
+        auto f = std::make_unique<std::ifstream>(p);
+        if (!f->is_open()) {
+            std::cerr << "Failed to open " << p << "\n";
+            continue;
+        }
+        if (i % 2 == 0)
+            inputs.push_back(std::move(f));
+        else
+            outputs.push_back(std::move(f));
+        i++;
+        cout<<"Loaded "<<p<<"\n";
+    }
+    return std::make_pair(std::move(inputs), std::move(outputs));
 }
 pair<vector<int>,vector<int>> dijkstra(Graph &G,int start,int end) {
 
@@ -227,32 +264,38 @@ vector<int> antColonyShortestPathSparse(Graph &G,
             }
         }
 
-        //cout << "Iteration " << iter+1 << " | Best cost: " << bestCost << "\n";
+        cout << "Iteration " << iter+1 << " | Best cost: " << bestCost << "\n";
     }
 
     return bestPath;
 }
 
 int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(0);
+    cout<<"Starting tests...\n";
 
     int N, M, u, v, w1, w2, start, end;
-    cin >> N >> M >> start >> end;
-    sieve(M);
-    Graph G;
-    G.n = N;
-    G.adj.resize(N);
-    for (int i = 0; i < M; i++) {
-        cin >> u >> v >> w1 >> w2;
-        G.adj[u].push_back({v, w1, w2, i + 1});
-        G.adj[v].push_back({u, w1, w2, i + 1});
+    cout<<"Generating sieve...\n";
+    cout<< "Loading test cases...\n";
+    auto [inputs,outputs] = load_test_cases();
+    int test_case = 0;
+    for (auto& f : inputs) {
+        cout << "Test case " << test_case++ << ":\n";
+        (*f) >> N >> M >> start >> end;
+        sieve(M);
+        Graph G;
+        G.n = N;
+        G.adj.resize(N);
+        for (int i = 0; i < M; i++) {
+            (*f) >> u >> v >> w1 >> w2;
+            G.adj[u].push_back({v, w1, w2, i + 1});
+            G.adj[v].push_back({u, w1, w2, i + 1});
+             // <-- 1-based index
+        }
+        vector<int> result  = antColonyShortestPathSparse(G, start, end,2000,10);
+        cout << result.size() << '\n';
+        // for (size_t i = 0; i < result.size(); ++i){
+        //     cout << result[i] << (i + 1 == result.size() ? '\n' : ' ');
+        // }
     }
-    vector<int> result  = antColonyShortestPathSparse(G, start, end,2000,10);
-    cout << result.size() << '\n';
-    for (size_t i = 0; i < result.size(); ++i){
-        cout << result[i] << (i + 1 == result.size() ? '\n' : ' ');
-    }
-
     return 0;
 }
